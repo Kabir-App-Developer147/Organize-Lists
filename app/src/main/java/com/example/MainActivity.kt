@@ -37,6 +37,7 @@ import com.example.data.Profile
 import com.example.ui.FocusScreen
 import com.example.ui.MainViewModel
 import com.example.ui.OnboardingScreen
+import com.example.ui.AiCopilotTabContent
 import com.example.ui.theme.MyApplicationTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -111,7 +112,7 @@ fun MainTabsContainer(
     sortBy: String,
     viewModel: MainViewModel
 ) {
-    var activeTab by remember { mutableIntStateOf(0) } // 0: Home/Lists, 1: Paragraphs Planner, 2: Storage Vault, 3: My Profile
+    var activeTab by remember { mutableIntStateOf(0) } // 0: Home/Lists, 1: Paragraphs Planner, 2: AI Copilot, 3: Storage Vault, 4: My Profile
 
     // Bottom sheets state for quick task creation
     var showAddTaskDialog by remember { mutableStateOf(false) }
@@ -140,7 +141,7 @@ fun MainTabsContainer(
                 },
                 actions = {
                     IconButton(
-                        onClick = { activeTab = 3 },
+                        onClick = { activeTab = 4 },
                         modifier = Modifier.testTag("avatar_button")
                     ) {
                         Box(
@@ -178,20 +179,27 @@ fun MainTabsContainer(
                 NavigationBarItem(
                     selected = activeTab == 1,
                     onClick = { activeTab = 1 },
-                    icon = { Icon(imageVector = Icons.Default.Description, contentDescription = "Docs Snippets") },
+                    icon = { Icon(imageVector = Icons.Default.Description, contentDescription = "Docs Planner") },
                     label = { Text("Planner", style = MaterialTheme.typography.labelMedium) },
                     modifier = Modifier.testTag("nav_planner")
                 )
                 NavigationBarItem(
                     selected = activeTab == 2,
                     onClick = { activeTab = 2 },
+                    icon = { Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = "AI Copilot") },
+                    label = { Text("AI Copilot", style = MaterialTheme.typography.labelMedium) },
+                    modifier = Modifier.testTag("nav_ai")
+                )
+                NavigationBarItem(
+                    selected = activeTab == 3,
+                    onClick = { activeTab = 3 },
                     icon = { Icon(imageVector = Icons.Default.Folder, contentDescription = "Storage Vault") },
                     label = { Text("Vault", style = MaterialTheme.typography.labelMedium) },
                     modifier = Modifier.testTag("nav_vault")
                 )
                 NavigationBarItem(
-                    selected = activeTab == 3,
-                    onClick = { activeTab = 3 },
+                    selected = activeTab == 4,
+                    onClick = { activeTab = 4 },
                     icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings") },
                     label = { Text("Profile", style = MaterialTheme.typography.labelMedium) },
                     modifier = Modifier.testTag("nav_profile")
@@ -232,13 +240,17 @@ fun MainTabsContainer(
                     documents = documents,
                     viewModel = viewModel
                 )
-                2 -> StorageVaultTabContent(
+                2 -> AiCopilotTabContent(
+                    documents = documents,
+                    viewModel = viewModel
+                )
+                3 -> StorageVaultTabContent(
                     documents = documents,
                     categories = categories,
                     filteredItems = filteredItems,
                     viewModel = viewModel
                 )
-                3 -> ProfileTabContent(
+                4 -> ProfileTabContent(
                     profile = profile,
                     itemsCount = filteredItems.size,
                     docsCount = documents.size,

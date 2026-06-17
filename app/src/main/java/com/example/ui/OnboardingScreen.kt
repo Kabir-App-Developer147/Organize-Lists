@@ -2,6 +2,7 @@ package com.example.ui
 
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
@@ -69,43 +70,10 @@ fun OnboardingScreen(
             // App Icon & Hero Title
             Column(
                 horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                // Try load the generated illustration, fallback safely
-                val context = LocalContext.current
-                val resourceId = remember {
-                    context.resources.getIdentifier(
-                        "img_onboarding_illustration_1781723099132",
-                        "drawable",
-                        context.packageName
-                    )
-                }
-
-                if (resourceId != 0) {
-                    Image(
-                        painter = painterResource(id = resourceId),
-                        contentDescription = "Onboarding Art",
-                        modifier = Modifier
-                            .size(160.dp)
-                            .clip(RoundedCornerShape(24.dp)),
-                        contentScale = ContentScale.Crop
-                    )
-                } else {
-                    Box(
-                        modifier = Modifier
-                            .size(120.dp)
-                            .clip(RoundedCornerShape(24.dp))
-                            .background(MaterialTheme.colorScheme.primaryContainer),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.AllInclusive,
-                            contentDescription = "Fallback Logo",
-                            tint = MaterialTheme.colorScheme.onPrimaryContainer,
-                            modifier = Modifier.size(64.dp)
-                        )
-                    }
-                }
+                // Procedural high-polish geometric design instead of AI imagery
+                DecorativeFocusPattern()
 
                 Text(
                     text = "Welcome to Focus Lists",
@@ -303,18 +271,15 @@ fun OnboardingScreen(
             // Submit Button
             Button(
                 onClick = {
-                    if (name.isNotBlank()) {
-                        onComplete(name.trim(), selectedPriority, selectedPace, selectedType)
-                    }
+                    val finalName = name.trim().ifBlank { "Focus Pioneer" }
+                    onComplete(finalName, selectedPriority, selectedPace, selectedType)
                 },
-                enabled = name.isNotBlank(),
                 modifier = Modifier
                     .fillMaxWidth()
                     .height(54.dp)
                     .testTag("submit_onboarding_button"),
                 colors = ButtonDefaults.buttonColors(
-                    containerColor = MaterialTheme.colorScheme.primary,
-                    disabledContainerColor = Color(0xFF334155)
+                    containerColor = MaterialTheme.colorScheme.primary
                 ),
                 shape = RoundedCornerShape(12.dp)
             ) {
@@ -322,12 +287,110 @@ fun OnboardingScreen(
                     text = "Begin Focus Space",
                     style = MaterialTheme.typography.titleMedium.copy(
                         fontWeight = FontWeight.Bold,
-                        color = if (name.isNotBlank()) Color.White else Color(0xFF64748B)
+                        color = Color.White
                     )
                 )
             }
 
             Spacer(modifier = Modifier.height(24.dp))
+        }
+    }
+}
+
+@Composable
+fun DecorativeFocusPattern(modifier: Modifier = Modifier) {
+    Box(
+        modifier = modifier
+            .size(140.dp)
+            .clip(RoundedCornerShape(24.dp))
+            .background(
+                Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF3B82F6), // Blue 500
+                        Color(0xFF1D4ED8), // Blue 700
+                        Color(0xFF0F172A)  // Slate 900
+                    )
+                )
+            )
+            .border(1.dp, Color(0xFF3B82F6).copy(alpha = 0.3f), RoundedCornerShape(24.dp)),
+        contentAlignment = Alignment.Center
+    ) {
+        androidx.compose.foundation.Canvas(modifier = Modifier.fillMaxSize()) {
+            val width = size.width
+            val height = size.height
+            val center = androidx.compose.ui.geometry.Offset(width / 2, height / 2)
+            
+            // Draw grid pattern (subtle lines)
+            val numGridLines = 6
+            for (i in 1..numGridLines) {
+                val ratio = i.toFloat() / (numGridLines + 1)
+                val x = width * ratio
+                val y = height * ratio
+                drawLine(
+                    color = Color.White.copy(alpha = 0.04f),
+                    start = androidx.compose.ui.geometry.Offset(x, 0f),
+                    end = androidx.compose.ui.geometry.Offset(x, height),
+                    strokeWidth = 1f
+                )
+                drawLine(
+                    color = Color.White.copy(alpha = 0.04f),
+                    start = androidx.compose.ui.geometry.Offset(0f, y),
+                    end = androidx.compose.ui.geometry.Offset(width, y),
+                    strokeWidth = 1f
+                )
+            }
+            
+            // Draw beautiful concentric rings with varying opacity to resemble radar / focus tracker
+            val rings = listOf(0.2f, 0.4f, 0.6f, 0.8f, 1.0f)
+            rings.forEach { r ->
+                drawCircle(
+                    color = Color.White.copy(alpha = 0.08f),
+                    radius = (width / 2) * r,
+                    style = androidx.compose.ui.graphics.drawscope.Stroke(width = 1.5f)
+                )
+            }
+
+            // Draw beautiful neon tech focus lines or segments
+            val strokeWidth = 4f
+            drawArc(
+                color = Color(0xFF60A5FA), // light blue
+                startAngle = -45f,
+                sweepAngle = 90f,
+                useCenter = false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth),
+                size = androidx.compose.ui.geometry.Size(width * 0.7f, height * 0.7f),
+                topLeft = androidx.compose.ui.geometry.Offset(width * 0.15f, height * 0.15f)
+            )
+
+            drawArc(
+                color = Color(0xFF34D399), // emerald accent
+                startAngle = 135f,
+                sweepAngle = 90f,
+                useCenter = false,
+                style = androidx.compose.ui.graphics.drawscope.Stroke(width = strokeWidth),
+                size = androidx.compose.ui.geometry.Size(width * 0.7f, height * 0.7f),
+                topLeft = androidx.compose.ui.geometry.Offset(width * 0.15f, height * 0.15f)
+            )
+
+            // Dynamic glow core element
+            drawCircle(
+                brush = Brush.radialGradient(
+                    colors = listOf(
+                        Color(0xFF34D399),
+                        Color(0xFF60A5FA).copy(alpha = 0.4f),
+                        Color.Transparent
+                    )
+                ),
+                radius = 24.dp.toPx(),
+                center = center
+            )
+
+            // Solid mini core point
+            drawCircle(
+                color = Color.White,
+                radius = 5.dp.toPx(),
+                center = center
+            )
         }
     }
 }

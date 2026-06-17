@@ -362,6 +362,107 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // AI Copilot Actions
+    private val _aiResultText = MutableStateFlow<String>("")
+    val aiResultText = _aiResultText.asStateFlow()
+
+    private val _isAiGenerating = MutableStateFlow<Boolean>(false)
+    val isAiGenerating = _isAiGenerating.asStateFlow()
+
+    fun generateAiReport(
+        apiKey: String,
+        modelSource: String, // "ONLINE_GEMINI", "OLLAMA", "OFFLINE_LOCAL"
+        modelName: String,
+        ollamaUrl: String,
+        selectedDocs: List<Document>,
+        presetType: String, // "PRIORITY_LIST", "EXECUTIVE_REPORT", "SOMEDAY_GOALS", "CUSTOM"
+        customPrompt: String
+    ) {
+        viewModelScope.launch {
+            _isAiGenerating.value = true
+            _aiResultText.value = "AI models compiling personalized report...\nAnalyzing ${selectedDocs.size} context source files."
+
+            val prompt = buildAiPrompt(selectedDocs, presetType, customPrompt)
+
+            val result = when (modelSource) {
+                "OFFLINE_LOCAL" -> {
+                    AiService.callLocalNativeEngine(selectedDocs, presetType, customPrompt)
+                }
+                "OLLAMA" -> {
+                    AiService.callOllamaApi(ollamaUrl, modelName, prompt)
+                }
+                else -> { // ONLINE_GEMINI
+                    val finalKey = if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+                        apiKey
+                    } else {
+                        com.example.BuildConfig.GEMINI_API_KEY
+                    }
+                    AiService.callGeminiApi(finalKey, modelName, prompt)
+                }
+            }
+
+            _aiResultText.value = result
+            _isAiGenerating.value = false
+        }
+    }
+
+    private fun buildAiPrompt(selectedDocs: List<Document>, presetType: String, customPrompt: String): String {
+        val contextBuilder = StringBuilder()
+        if (selectedDocs.isEmpty()) {
+            contextBuilder.append("No context files selected.\n")
+        } else {
+            contextBuilder.append("Analyze the following sources to generate results:\n")
+            selectedDocs.forEachIndexed { idx, doc ->
+                contextBuilder.append("=== SOURCE FILE #${idx + 1} [Type: ${doc.type}]: ${doc.title} ===\n")
+                contextBuilder.append("${doc.content}\n")
+                contextBuilder.append("=========================================\n")
+            }
+        }
+
+        return when (presetType) {
+            "PRIORITY_LIST" -> {
+                "You are an offline/online productivity personalized intelligence agent. " +
+                "Deconstruct the user's provided document inputs and draft a beautifully organized priority checklist. " +
+                "Group the tasks into: Today, Week, Month, Year, and Anytime Goals. " +
+                "Give bullet details for each action. Do not reference raw formatting parameters.\n\n" +
+                "Context Sources:\n$contextBuilder\n\n" +
+                "Format: Markdown checklists."
+            }
+            "EXECUTIVE_REPORT" -> {
+                "You are a stellar productivity analyst. " +
+                "Compile an executive-level summary and progress evaluation of the selected documentation. " +
+                "Spot bottlenecks, map workflows, and outline actionable personal strategies.\n\n" +
+                "Context Sources:\n$contextBuilder\n\n" +
+                "Format: Markdown report with header tags."
+            }
+            "SOMEDAY_GOALS" -> {
+                "You are a long-term goal planning assistant. " +
+                "Filter current documents for aspirational, undefined, or 'Someday' long-term goals that can be worked on indefinitely. " +
+                "Format them cleanly with associated micro-habits the user can build without hard timelines.\n\n" +
+                "Context Sources:\n$contextBuilder\n\n" +
+                "Format: Markdown list."
+            }
+            else -> {
+                "Write a comprehensive markdown answer addressing: \"$customPrompt\"\n\n" +
+                "Using details from context files:\n$contextBuilder"
+            }
+        }
+    }
+
+    fun saveResultAsDocument(title: String, content: String) {
+        viewModelScope.launch {
+            if (content.isNotBlank()) {
+                val docTitle = if (title.isBlank()) "AI Report" else title
+                addDocument(
+                    title = docTitle,
+                    content = content,
+                    type = "DOCUMENT",
+                    autoParse = false
+                )
+            }
+        }
+    }
+
     fun resetProfile() {
         viewModelScope.launch {
             // Delete all list items, categories, documents, and profile to start fresh
