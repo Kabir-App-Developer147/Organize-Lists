@@ -502,11 +502,37 @@ fun MainListScreen(
 
                                         Spacer(modifier = Modifier.height(2.dp))
 
-                                        // Labels (Category, Timeframe, Priority)
+                                        // Labels (Area of Life, Category, Timeframe, Priority)
                                         Row(
                                             verticalAlignment = Alignment.CenterVertically,
                                             horizontalArrangement = Arrangement.spacedBy(6.dp)
                                         ) {
+                                            val badgeColor = when (item.lifeArea) {
+                                                "Health" -> Color(0xFF10B981)
+                                                "Career" -> Color(0xFF3B82F6)
+                                                "Personal Growth" -> Color(0xFF8B5CF6)
+                                                "Leisure" -> Color(0xFFF59E0B)
+                                                "Finance" -> Color(0xFFEC4899)
+                                                else -> Color(0xFF64748B)
+                                            }
+                                            Surface(
+                                                shape = RoundedCornerShape(4.dp),
+                                                color = badgeColor.copy(alpha = 0.12f),
+                                            ) {
+                                                Text(
+                                                    text = item.lifeArea.uppercase(),
+                                                    style = MaterialTheme.typography.labelSmall.copy(
+                                                        color = badgeColor,
+                                                        fontWeight = FontWeight.Bold,
+                                                        fontSize = 9.sp
+                                                    ),
+                                                    modifier = Modifier.padding(horizontal = 5.dp, vertical = 2.dp)
+                                                )
+                                            }
+                                            Text(
+                                                text = "•",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = Color.LightGray)
+                                            )
                                             Text(
                                                 text = item.category,
                                                 style = MaterialTheme.typography.labelSmall.copy(
@@ -630,6 +656,7 @@ fun MainListScreen(
             var itemPriority by remember { mutableStateOf("MEDIUM") }
             var itemTimeframe by remember { mutableStateOf("DAY") }
             var itemNotes by remember { mutableStateOf("") }
+            var itemLifeArea by remember { mutableStateOf("Personal Growth") }
 
             AlertDialog(
                 onDismissRequest = { showAddDialog = false },
@@ -640,14 +667,88 @@ fun MainListScreen(
                         modifier = Modifier.fillMaxWidth()
                     ) {
                         OutlinedTextField(
-                            value = itemTitle,
-                            onValueChange = { itemTitle = it },
-                            label = { Text("Title of task/movie etc.") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .testTag("add_item_title"),
-                            singleLine = true
+                             value = itemTitle,
+                             onValueChange = { itemTitle = it },
+                             label = { Text("Title of task/movie etc.") },
+                             modifier = Modifier
+                                 .fillMaxWidth()
+                                 .testTag("add_item_title"),
+                             singleLine = true
                         )
+
+                        // Area of Life selection
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Area of Life", style = MaterialTheme.typography.titleSmall)
+                            
+                            var isSuggesting by remember { mutableStateOf(false) }
+                            
+                            TextButton(
+                                onClick = {
+                                    if (itemTitle.isNotBlank()) {
+                                        isSuggesting = true
+                                        viewModel.suggestCategory(
+                                            title = itemTitle,
+                                            notes = itemNotes,
+                                            onCompleted = { suggested ->
+                                                itemLifeArea = suggested
+                                                isSuggesting = false
+                                            }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier.testTag("suggest_area_button"),
+                                enabled = itemTitle.isNotBlank() && !isSuggesting,
+                                contentPadding = PaddingValues(horizontal = 8.dp, vertical = 2.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.AutoAwesome,
+                                    contentDescription = "AI Suggest Area",
+                                    modifier = Modifier.size(14.dp),
+                                    tint = MaterialTheme.colorScheme.primary
+                                )
+                                Spacer(modifier = Modifier.width(4.dp))
+                                Text(
+                                    text = if (isSuggesting) "Analyzing..." else "AI Suggest",
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = MaterialTheme.colorScheme.primary
+                                )
+                            }
+                        }
+                        LazyRow(
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                            modifier = Modifier.fillMaxWidth()
+                        ) {
+                            val lifeAreas = listOf("Health", "Career", "Personal Growth", "Leisure", "Finance", "General")
+                            items(lifeAreas) { area ->
+                                val active = itemLifeArea == area
+                                val activeColor = when (area) {
+                                    "Health" -> Color(0xFF10B981)
+                                    "Career" -> Color(0xFF3B82F6)
+                                    "Personal Growth" -> Color(0xFF8B5CF6)
+                                    "Leisure" -> Color(0xFFF59E0B)
+                                    "Finance" -> Color(0xFFEC4899)
+                                    else -> Color(0xFF64748B)
+                                }
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(8.dp))
+                                        .background(if (active) activeColor else Color.LightGray.copy(alpha = 0.3f))
+                                        .clickable { itemLifeArea = area }
+                                        .padding(horizontal = 12.dp, vertical = 6.dp),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Text(
+                                        text = area,
+                                        style = MaterialTheme.typography.labelSmall,
+                                        color = if (active) Color.White else Color.Black
+                                    )
+                                }
+                            }
+                        }
 
                         // Category Picker Selection (Quick list)
                         Text("Category", style = MaterialTheme.typography.titleSmall)
@@ -752,7 +853,8 @@ fun MainListScreen(
                                     category = itemCategory,
                                     priority = itemPriority,
                                     timeframe = itemTimeframe,
-                                    notes = itemNotes.trim()
+                                    notes = itemNotes.trim(),
+                                    lifeArea = itemLifeArea
                                 )
                                 showAddDialog = false
                             }

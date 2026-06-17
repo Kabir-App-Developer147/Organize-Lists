@@ -30,7 +30,8 @@ data class ListItem(
     val timeframe: String = "DAY", // "DAY", "WEEK", "MONTH", "YEAR", "ANYTIME"
     val notes: String = "",
     val timestampCreated: Long = System.currentTimeMillis(),
-    val timestampCompleted: Long? = null
+    val timestampCompleted: Long? = null,
+    val lifeArea: String = "Personal Growth" // "Health", "Career", "Personal Growth", "Leisure", "Finance", "General"
 )
 
 @Entity(tableName = "documents")

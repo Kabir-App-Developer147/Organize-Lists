@@ -2,13 +2,17 @@ package com.example
 
 import android.os.Bundle
 import androidx.activity.ComponentActivity
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.*
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyRow
@@ -24,6 +28,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextAlign
@@ -1033,6 +1038,57 @@ fun DocumentPlannerTabContent(
                             style = MaterialTheme.typography.labelSmall
                         )
                     }
+
+                    var suggestedCategory by remember { mutableStateOf("") }
+                    LaunchedEffect(titleInput, contentInput) {
+                        if (titleInput.isNotBlank() || contentInput.isNotBlank()) {
+                            viewModel.suggestCategory(titleInput, contentInput) { category ->
+                                suggestedCategory = category
+                            }
+                        } else {
+                            suggestedCategory = ""
+                        }
+                    }
+
+                    if (suggestedCategory.isNotEmpty()) {
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(4.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            modifier = Modifier.padding(horizontal = 4.dp, vertical = 2.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AutoAwesome,
+                                contentDescription = "AI Classification",
+                                tint = MaterialTheme.colorScheme.primary,
+                                modifier = Modifier.size(14.dp)
+                            )
+                            Text(
+                                text = "LLM Category Recommendation: ",
+                                style = MaterialTheme.typography.labelSmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            val areaColor = when (suggestedCategory) {
+                                "Health" -> Color(0xFF10B981)
+                                "Career" -> Color(0xFF3B82F6)
+                                "Personal Growth" -> Color(0xFF8B5CF6)
+                                "Leisure" -> Color(0xFFF59E0B)
+                                "Finance" -> Color(0xFFEC4899)
+                                else -> Color(0xFF64748B)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(4.dp))
+                                    .background(areaColor.copy(alpha = 0.15f))
+                                    .padding(horizontal = 6.dp, vertical = 2.dp)
+                            ) {
+                                Text(
+                                    text = suggestedCategory,
+                                    style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                    color = areaColor
+                                )
+                            }
+                        }
+                    }
                 }
 
                 Button(
@@ -1159,18 +1215,47 @@ fun DocumentPlannerTabContent(
 
                             Row(
                                 modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
                             ) {
-                                Box(
-                                    modifier = Modifier
-                                        .clip(RoundedCornerShape(6.dp))
-                                        .background(MaterialTheme.colorScheme.surface)
-                                        .padding(horizontal = 6.dp, vertical = 2.dp)
-                                ) {
-                                    Text(
-                                        text = doc.type,
-                                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black)
-                                    )
+                                Row(horizontalArrangement = Arrangement.spacedBy(6.dp)) {
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(MaterialTheme.colorScheme.surface)
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = doc.type,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Black)
+                                        )
+                                    }
+
+                                    val docSuggested = remember(doc.title, doc.content) {
+                                        com.example.data.AiService.suggestAreaOfLife(doc.title, doc.content)
+                                    }
+
+                                    val badgeColor = when (docSuggested) {
+                                        "Health" -> Color(0xFF10B981)
+                                        "Career" -> Color(0xFF3B82F6)
+                                        "Personal Growth" -> Color(0xFF8B5CF6)
+                                        "Leisure" -> Color(0xFFF59E0B)
+                                        "Finance" -> Color(0xFFEC4899)
+                                        else -> Color(0xFF64748B)
+                                    }
+
+                                    Box(
+                                        modifier = Modifier
+                                            .clip(RoundedCornerShape(6.dp))
+                                            .background(badgeColor.copy(alpha = 0.15f))
+                                            .padding(horizontal = 6.dp, vertical = 2.dp)
+                                    ) {
+                                        Text(
+                                            text = docSuggested,
+                                            style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold),
+                                            color = badgeColor
+                                        )
+                                    }
                                 }
 
                                 val df = SimpleDateFormat("MMM dd, yyyy HH:mm", Locale.getDefault())
@@ -1486,9 +1571,53 @@ fun ProfileTabContent(
     docsCount: Int,
     viewModel: MainViewModel
 ) {
+    val context = LocalContext.current
+    var backupStatusMessage by remember { mutableStateOf<String?>(null) }
+
+    // ActivityResult Launchers for System File backup
+    val exportLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.CreateDocument("application/json")
+    ) { uri ->
+        if (uri != null) {
+            viewModel.exportToUri(
+                context = context,
+                uri = uri,
+                onSuccess = { backupStatusMessage = "Backup successfully exported to JSON file!" },
+                onError = { backupStatusMessage = "Export failed: $it" }
+            )
+        }
+    }
+
+    val importLauncher = rememberLauncherForActivityResult(
+        contract = ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri != null) {
+            viewModel.importFromUri(
+                context = context,
+                uri = uri,
+                onSuccess = { backupStatusMessage = "Data successfully imported and restored!" },
+                onError = { backupStatusMessage = "Import failed: $it" }
+            )
+        }
+    }
+
+    // Get sandbox backup file details
+    val sandboxFile = remember { java.io.File(context.filesDir, "sandbox_backup.json") }
+    var sandboxExists by remember { mutableStateOf(sandboxFile.exists()) }
+    var lastSandboxTime by remember {
+        mutableStateOf(
+            if (sandboxFile.exists()) {
+                java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(sandboxFile.lastModified()))
+            } else {
+                null
+            }
+        )
+    }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(24.dp),
         horizontalAlignment = Alignment.CenterHorizontally,
         verticalArrangement = Arrangement.spacedBy(20.dp)
@@ -1611,7 +1740,207 @@ fun ProfileTabContent(
             }
         }
 
-        Spacer(modifier = Modifier.weight(1f))
+        // 💾 Local Backups & Data Portability Card
+        Card(
+            modifier = Modifier.fillMaxWidth().testTag("backup_card"),
+            colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
+            border = BorderStroke(1.dp, MaterialTheme.colorScheme.outline.copy(alpha = 0.2f))
+        ) {
+            Column(
+                modifier = Modifier.padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Icon(
+                        imageVector = Icons.Default.Backup,
+                        contentDescription = "Backup and restore icon",
+                        tint = MaterialTheme.colorScheme.primary
+                    )
+                    Text(
+                        text = "Local Backups & Repositories",
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold)
+                    )
+                }
+
+                Text(
+                    text = "Export active goals, lists, categories, custom documents/notes, and layout profile configurations to local JSON files for seamless data portability and backups.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+
+                if (backupStatusMessage != null) {
+                    Surface(
+                        color = MaterialTheme.colorScheme.primaryContainer,
+                        shape = RoundedCornerShape(8.dp),
+                        modifier = Modifier.fillMaxWidth()
+                    ) {
+                        Row(
+                            modifier = Modifier.padding(10.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp)
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.Info,
+                                contentDescription = "Information status",
+                                tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                modifier = Modifier.size(16.dp)
+                            )
+                            Text(
+                                text = backupStatusMessage ?: "",
+                                style = MaterialTheme.typography.bodySmall.copy(
+                                    color = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    fontWeight = FontWeight.Medium
+                                ),
+                                modifier = Modifier.weight(1f)
+                            )
+                            IconButton(
+                                onClick = { backupStatusMessage = null },
+                                modifier = Modifier.size(20.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Close,
+                                    contentDescription = "Dismiss status",
+                                    tint = MaterialTheme.colorScheme.onPrimaryContainer,
+                                    modifier = Modifier.size(14.dp)
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // Method 1: System Files Operations
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "LOCAL EXPORT / IMPORT FILE",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.Bold,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    )
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Button(
+                            onClick = {
+                                try {
+                                    val fileName = "BackupsVault_${System.currentTimeMillis()}.json"
+                                    exportLauncher.launch(fileName)
+                                } catch (e: Exception) {
+                                    backupStatusMessage = "Export setup error: ${e.localizedMessage}"
+                                }
+                            },
+                            modifier = Modifier.weight(1f).testTag("system_export_button"),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Download, contentDescription = "Export JSON")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Export File", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        Button(
+                            onClick = {
+                                try {
+                                    importLauncher.launch(arrayOf("application/json", "application/octet-stream", "*/*"))
+                                } catch (e: Exception) {
+                                    backupStatusMessage = "Import setup error: ${e.localizedMessage}"
+                                }
+                            },
+                            modifier = Modifier.weight(1f).testTag("system_import_button"),
+                            colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.tertiary),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Upload, contentDescription = "Import JSON")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Import File", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+
+                HorizontalDivider(modifier = Modifier.padding(vertical = 4.dp), color = MaterialTheme.colorScheme.outline.copy(alpha = 0.12f))
+
+                // Method 2: Offline Sandbox
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = "INSTANT APP SANDBOX BACKUP",
+                            style = MaterialTheme.typography.labelSmall.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = MaterialTheme.colorScheme.secondary
+                            )
+                        )
+                        Text(
+                            text = if (lastSandboxTime != null) "Last: $lastSandboxTime" else "No backup yet",
+                            style = MaterialTheme.typography.bodySmall.copy(
+                                fontSize = 10.sp,
+                                color = MaterialTheme.colorScheme.outline
+                            )
+                        )
+                    }
+
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    sandboxFile.writeText(viewModel.exportBackupToJson())
+                                    sandboxExists = true
+                                    lastSandboxTime = java.text.SimpleDateFormat("yyyy-MM-dd HH:mm:ss", java.util.Locale.getDefault()).format(java.util.Date(sandboxFile.lastModified()))
+                                    backupStatusMessage = "Successfully created instant sandbox backup!"
+                                } catch (e: Exception) {
+                                    backupStatusMessage = "Sandbox save failed: ${e.localizedMessage}"
+                                }
+                            },
+                            modifier = Modifier.weight(1f).testTag("sandbox_save_button"),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Save, contentDescription = "Quick Save")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Quick Save", style = MaterialTheme.typography.labelMedium)
+                        }
+
+                        OutlinedButton(
+                            onClick = {
+                                try {
+                                    if (sandboxFile.exists()) {
+                                        viewModel.importBackupFromJson(sandboxFile.readText())
+                                        backupStatusMessage = "Successfully restored sandbox backup!"
+                                    } else {
+                                        backupStatusMessage = "No sandbox backup found."
+                                    }
+                                } catch (e: Exception) {
+                                    backupStatusMessage = "Sandbox restore failed: ${e.localizedMessage}"
+                                }
+                            },
+                            enabled = sandboxExists,
+                            modifier = Modifier.weight(1f).testTag("sandbox_load_button"),
+                            shape = RoundedCornerShape(8.dp),
+                            contentPadding = PaddingValues(vertical = 8.dp)
+                        ) {
+                            Icon(imageVector = Icons.Default.Restore, contentDescription = "Quick Load")
+                            Spacer(modifier = Modifier.width(4.dp))
+                            Text("Quick Load", style = MaterialTheme.typography.labelMedium)
+                        }
+                    }
+                }
+            }
+        }
+
+        Spacer(modifier = Modifier.height(8.dp))
 
         // Reset Onboarding/Profile to start fresh!
         Button(

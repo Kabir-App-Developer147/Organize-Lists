@@ -38,6 +38,9 @@ interface ListItemDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertItem(item: ListItem)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertItems(items: List<ListItem>)
+
     @Update
     suspend fun updateItem(item: ListItem)
 
@@ -55,6 +58,9 @@ interface DocumentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertDocument(document: Document)
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insertDocuments(documents: List<Document>)
 
     @Update
     suspend fun updateDocument(document: Document)

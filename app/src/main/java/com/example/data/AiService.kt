@@ -311,4 +311,36 @@ object AiService {
             }
         }
     }
+
+    /**
+     * Suggests an Area of Life category based on title and content.
+     */
+    fun suggestAreaOfLife(title: String, content: String): String {
+        val combined = "$title $content".lowercase()
+        
+        // Count keywords for each area
+        val healthKeywords = listOf("health", "execise", "workout", "gym", "run", "meditation", "breath", "doctor", "dentist", "sleep", "diet", "food", "calorie", "muscle", "stretch", "swim", "bike", "cardio", "pill", "vitamin", "symptom", "medical", "clinic", "run", "cycle", "walk", "jog", "tennis", "sports", "yoga", "healthy", "hospital", "illness", "fit")
+        val careerKeywords = listOf("career", "work", "job", "office", "resume", "recruit", "interview", "hire", "meeting", "manager", "promotion", "project", "presentation", "report", "company", "client", "boss", "deadline", "salary", "wage", "internship", "business", "meeting", "task", "coding", "code", "programming", "developer", "server", "deploy", "git", "github", "qa", "test", "resume", "hr")
+        val growthKeywords = listOf("learn", "study", "book", "read", "course", "tutorial", "skill", "habits", "practice", "mindset", "diary", "journal", "goal", "lecture", "class", "exam", "assignment", "language", "vocabulary", "growth", "mentor", "podcast", "write", "notes", "summary", "lesson", "knowledge", "science", "math", "history", "philosophy")
+        val leisureKeywords = listOf("leisure", "hobby", "game", "play", "watch", "movie", "film", "series", "music", "song", "guitar", "piano", "art", "draw", "paint", "vacation", "travel", "trip", "party", "social", "friend", "family", "relax", "dinner", "fun", "gaming", "stream", "show", "anime", "concert", "nature", "outdoor", "cooking")
+        val financeKeywords = listOf("finance", "money", "budget", "spend", "buy", "saving", "invest", "stock", "crypto", "tax", "bill", "rent", "payment", "bank", "credit", "debt", "expense", "cost", "price", "income", "portfolio", "insurance", "purchase", "pay", "dollar", "eur", "wallet", "cash", "loan")
+
+        val healthCount = healthKeywords.count { combined.contains(it) }
+        val careerCount = careerKeywords.count { combined.contains(it) }
+        val growthCount = growthKeywords.count { combined.contains(it) }
+        val leisureCount = leisureKeywords.count { combined.contains(it) }
+        val financeCount = financeKeywords.count { combined.contains(it) }
+
+        val maxCount = maxOf(healthCount, careerCount, growthCount, leisureCount, financeCount)
+        if (maxCount == 0) return "General"
+
+        return when {
+            healthCount == maxCount -> "Health"
+            careerCount == maxCount -> "Career"
+            growthCount == maxCount -> "Personal Growth"
+            leisureCount == maxCount -> "Leisure"
+            financeCount == maxCount -> "Finance"
+            else -> "General"
+        }
+    }
 }

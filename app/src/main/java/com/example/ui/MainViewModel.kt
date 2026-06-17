@@ -170,21 +170,24 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                     category = "General Tasks",
                     priority = "HIGH",
                     timeframe = "DAY",
-                    notes = "Clear clutter to maintain peaceful focus."
+                    notes = "Clear clutter to maintain peaceful focus.",
+                    lifeArea = "Career"
                 ),
                 ListItem(
                     title = "Set up reading priorities for this month",
                     category = "General Tasks",
                     priority = "MEDIUM",
                     timeframe = "WEEK",
-                    notes = "Take 10 minutes to plan books/articles."
+                    notes = "Take 10 minutes to plan books/articles.",
+                    lifeArea = "Personal Growth"
                 ),
                 ListItem(
                     title = "Watch a thoughtful movie tonight",
                     category = if (type == "Movies") "Movies to Watch" else "General Tasks",
                     priority = "LOW",
                     timeframe = "DAY",
-                    notes = "Enjoy distraction-free entertainment."
+                    notes = "Enjoy distraction-free entertainment.",
+                    lifeArea = "Leisure"
                 )
             )
             for (item in starterItems) {
@@ -194,14 +197,15 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     // Core list item modifications
-    fun addItem(title: String, category: String, priority: String, timeframe: String, notes: String) {
+    fun addItem(title: String, category: String, priority: String, timeframe: String, notes: String, lifeArea: String = "Personal Growth") {
         viewModelScope.launch {
             val item = ListItem(
                 title = title,
                 category = category,
                 priority = priority,
                 timeframe = timeframe,
-                notes = notes
+                notes = notes,
+                lifeArea = lifeArea
             )
             repository.insertItem(item)
         }
@@ -484,5 +488,287 @@ class MainViewModel(application: Application) : AndroidViewModel(application) {
                 repository.deleteDocument(d)
             }
         }
+    }
+
+    // --- JSON Backup Export/Import Feature ---
+    fun exportBackupToJson(): String {
+        val backupObj = org.json.JSONObject()
+
+        try {
+            // 1. Profile
+            val profileVal = profile.value
+            if (profileVal != null) {
+                val pObj = org.json.JSONObject()
+                pObj.put("id", profileVal.id)
+                pObj.put("userName", profileVal.userName)
+                pObj.put("priorityTopic", profileVal.priorityTopic)
+                pObj.put("pace", profileVal.pace)
+                pObj.put("preferredType", profileVal.preferredType)
+                pObj.put("isOnboardingCompleted", profileVal.isOnboardingCompleted)
+                backupObj.put("profile", pObj)
+            }
+
+            // 2. Categories
+            val catsArr = org.json.JSONArray()
+            for (cat in categories.value) {
+                val cObj = org.json.JSONObject()
+                cObj.put("name", cat.name)
+                cObj.put("isSystem", cat.isSystem)
+                cObj.put("iconName", cat.iconName)
+                catsArr.put(cObj)
+            }
+            backupObj.put("categories", catsArr)
+
+            // 3. ListItems
+            val itemsArr = org.json.JSONArray()
+            for (item in allItems.value) {
+                val iObj = org.json.JSONObject()
+                iObj.put("id", item.id)
+                iObj.put("title", item.title)
+                iObj.put("category", item.category)
+                iObj.put("status", item.status)
+                iObj.put("priority", item.priority)
+                iObj.put("timeframe", item.timeframe)
+                iObj.put("notes", item.notes)
+                iObj.put("timestampCreated", item.timestampCreated)
+                if (item.timestampCompleted != null) {
+                    iObj.put("timestampCompleted", item.timestampCompleted)
+                } else {
+                    iObj.put("timestampCompleted", org.json.JSONObject.NULL)
+                }
+                iObj.put("lifeArea", item.lifeArea)
+                itemsArr.put(iObj)
+            }
+            backupObj.put("items", itemsArr)
+
+            // 4. Documents
+            val docsArr = org.json.JSONArray()
+            for (doc in allDocuments.value) {
+                val dObj = org.json.JSONObject()
+                dObj.put("id", doc.id)
+                dObj.put("title", doc.title)
+                dObj.put("content", doc.content)
+                dObj.put("type", doc.type)
+                dObj.put("timestampCreated", doc.timestampCreated)
+                dObj.put("filePath", doc.filePath ?: org.json.JSONObject.NULL)
+                dObj.put("fileSize", doc.fileSize ?: org.json.JSONObject.NULL)
+                dObj.put("fileMimeType", doc.fileMimeType ?: org.json.JSONObject.NULL)
+                docsArr.put(dObj)
+            }
+            backupObj.put("documents", docsArr)
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+
+        return backupObj.toString(2)
+    }
+
+    fun importBackupFromJson(jsonString: String) {
+        viewModelScope.launch {
+            try {
+                val backupObj = org.json.JSONObject(jsonString)
+
+                // 1. Profile
+                if (backupObj.has("profile")) {
+                    val pObj = backupObj.getJSONObject("profile")
+                    val importedProfile = Profile(
+                        id = pObj.optInt("id", 0),
+                        userName = pObj.optString("userName", ""),
+                        priorityTopic = pObj.optString("priorityTopic", "Focus"),
+                        pace = pObj.optString("pace", "Balanced"),
+                        preferredType = pObj.optString("preferredType", "Tasks"),
+                        isOnboardingCompleted = pObj.optBoolean("isOnboardingCompleted", false)
+                    )
+                    repository.insertProfile(importedProfile)
+                }
+
+                // 2. Categories
+                if (backupObj.has("categories")) {
+                    val catsArr = backupObj.getJSONArray("categories")
+                    val importedCats = mutableListOf<ListCategory>()
+                    for (i in 0 until catsArr.length()) {
+                        val cObj = catsArr.getJSONObject(i)
+                        importedCats.add(
+                            ListCategory(
+                                name = cObj.getString("name"),
+                                isSystem = cObj.optBoolean("isSystem", false),
+                                iconName = cObj.optString("iconName", "list")
+                            )
+                        )
+                    }
+                    if (importedCats.isNotEmpty()) {
+                        repository.insertCategories(importedCats)
+                    }
+                }
+
+                // 3. ListItems
+                if (backupObj.has("items")) {
+                    val itemsArr = backupObj.getJSONArray("items")
+                    val importedItems = mutableListOf<ListItem>()
+                    for (i in 0 until itemsArr.length()) {
+                        val iObj = itemsArr.getJSONObject(i)
+                        val completedTime = if (iObj.isNull("timestampCompleted")) null else iObj.getLong("timestampCompleted")
+                        importedItems.add(
+                            ListItem(
+                                id = iObj.optInt("id", 0),
+                                title = iObj.getString("title"),
+                                category = iObj.getString("category"),
+                                status = iObj.optString("status", "WANNA_DO"),
+                                priority = iObj.optString("priority", "MEDIUM"),
+                                timeframe = iObj.optString("timeframe", "DAY"),
+                                notes = iObj.optString("notes", ""),
+                                timestampCreated = iObj.optLong("timestampCreated", System.currentTimeMillis()),
+                                timestampCompleted = completedTime,
+                                lifeArea = iObj.optString("lifeArea", "Personal Growth")
+                            )
+                        )
+                    }
+                    if (importedItems.isNotEmpty()) {
+                        repository.insertItems(importedItems)
+                    }
+                }
+
+                // 4. Documents
+                if (backupObj.has("documents")) {
+                    val docsArr = backupObj.getJSONArray("documents")
+                    val importedDocs = mutableListOf<Document>()
+                    for (i in 0 until docsArr.length()) {
+                        val dObj = docsArr.getJSONObject(i)
+                        importedDocs.add(
+                            Document(
+                                id = dObj.optInt("id", 0),
+                                title = dObj.getString("title"),
+                                content = dObj.getString("content"),
+                                type = dObj.optString("type", "DOCUMENT"),
+                                timestampCreated = dObj.optLong("timestampCreated", System.currentTimeMillis()),
+                                filePath = if (dObj.isNull("filePath")) null else dObj.getString("filePath"),
+                                fileSize = if (dObj.isNull("fileSize")) null else dObj.getString("fileSize"),
+                                fileMimeType = if (dObj.isNull("fileMimeType")) null else dObj.getString("fileMimeType")
+                            )
+                        )
+                    }
+                    if (importedDocs.isNotEmpty()) {
+                        repository.insertDocuments(importedDocs)
+                    }
+                }
+            } catch (e: Exception) {
+                e.printStackTrace()
+                throw e
+            }
+        }
+    }
+
+    fun exportToUri(context: android.content.Context, uri: android.net.Uri, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val jsonStr = exportBackupToJson()
+                context.contentResolver.openOutputStream(uri)?.use { output ->
+                    output.write(jsonStr.toByteArray(Charsets.UTF_8))
+                }
+                onSuccess()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onError(e.localizedMessage ?: "Unknown error exporting backup")
+            }
+        }
+    }
+
+    fun importFromUri(context: android.content.Context, uri: android.net.Uri, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        viewModelScope.launch {
+            try {
+                val contentResolver = context.contentResolver
+                val stringBuilder = StringBuilder()
+                contentResolver.openInputStream(uri)?.use { inputStream ->
+                    val reader = java.io.BufferedReader(java.io.InputStreamReader(inputStream, Charsets.UTF_8))
+                    var line: String? = reader.readLine()
+                    while (line != null) {
+                        stringBuilder.append(line).append('\n')
+                        line = reader.readLine()
+                    }
+                }
+                importBackupFromJson(stringBuilder.toString())
+                onSuccess()
+            } catch (e: Exception) {
+                e.printStackTrace()
+                onError(e.localizedMessage ?: "Unknown error importing backup")
+            }
+        }
+    }
+
+    // --- AI/LLM Category Suggestion feature ---
+    fun suggestCategory(
+        title: String,
+        notes: String,
+        modelSource: String = "OFFLINE_LOCAL", // Default to local engine / heuristics
+        apiKey: String = "",
+        modelName: String = "gemini-3.5-flash",
+        ollamaUrl: String = "",
+        onCompleted: (String) -> Unit
+    ) {
+        viewModelScope.launch {
+            if (title.isBlank() && notes.isBlank()) {
+                onCompleted("General")
+                return@launch
+            }
+
+            // Immediately calculate heuristic option
+            val localResult = com.example.data.AiService.suggestAreaOfLife(title, notes)
+
+            if (modelSource == "OFFLINE_LOCAL") {
+                onCompleted(localResult)
+                return@launch
+            }
+
+            val prompt = """
+                Based on the following item or note, classify it into exactly one of these areas of life categories:
+                "Health", "Career", "Personal Growth", "Leisure", "Finance", "General".
+                
+                Title: $title
+                Notes: $notes
+                
+                Respond with only the single category name select from: "Health", "Career", "Personal Growth", "Leisure", "Finance", "General". Do not write anything else. No explanation, no punctuation, no formatting.
+            """.trimIndent()
+
+            val result = try {
+                when (modelSource) {
+                    "OLLAMA" -> {
+                        val response = com.example.data.AiService.callOllamaApi(ollamaUrl, modelName, prompt)
+                        val cleaned = response.trim().replace(Regex("[^a-zA-Z ]"), "")
+                        parseCategoryResponse(cleaned, localResult)
+                    }
+                    else -> { // ONLINE_GEMINI
+                        val finalKey = if (apiKey.isNotBlank() && apiKey != "MY_GEMINI_API_KEY") {
+                            apiKey
+                        } else {
+                            com.example.BuildConfig.GEMINI_API_KEY
+                        }
+                        if (finalKey.isBlank() || finalKey == "MY_GEMINI_API_KEY") {
+                            localResult
+                        } else {
+                            val response = com.example.data.AiService.callGeminiApi(finalKey, modelName, prompt)
+                            val cleaned = response.trim().replace(Regex("[^a-zA-Z ]"), "")
+                            parseCategoryResponse(cleaned, localResult)
+                        }
+                    }
+                }
+            } catch (e: Exception) {
+                localResult
+            }
+
+            onCompleted(result)
+        }
+    }
+
+    private fun parseCategoryResponse(response: String, fallback: String): String {
+        val matches = listOf("Health", "Career", "Personal Growth", "Leisure", "Finance", "General")
+        for (m in matches) {
+            if (response.contains(m, ignoreCase = true)) {
+                return m
+            }
+        }
+        if (response.contains("Personal", ignoreCase = true) || response.contains("Growth", ignoreCase = true)) {
+            return "Personal Growth"
+        }
+        return fallback
     }
 }

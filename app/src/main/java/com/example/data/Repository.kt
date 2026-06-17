@@ -21,12 +21,14 @@ class ListRepository(
 
     fun getItemsByCategory(category: String): Flow<List<ListItem>> = itemDao.getItemsByCategory(category)
     suspend fun insertItem(item: ListItem) = itemDao.insertItem(item)
+    suspend fun insertItems(items: List<ListItem>) = itemDao.insertItems(items)
     suspend fun updateItem(item: ListItem) = itemDao.updateItem(item)
     suspend fun deleteItem(item: ListItem) = itemDao.deleteItem(item)
     suspend fun deleteItemById(id: Int) = itemDao.deleteItemById(id)
 
     // Document operations
     suspend fun insertDocument(document: Document) = documentDao.insertDocument(document)
+    suspend fun insertDocuments(documents: List<Document>) = documentDao.insertDocuments(documents)
     suspend fun updateDocument(document: Document) = documentDao.updateDocument(document)
     suspend fun deleteDocument(document: Document) = documentDao.deleteDocument(document)
     suspend fun deleteDocumentById(id: Int) = documentDao.deleteDocumentById(id)

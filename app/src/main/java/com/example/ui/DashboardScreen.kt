@@ -47,6 +47,9 @@ fun DashboardScreen(
     // 2. Filter Priority Mode
     var priorityFilter by remember { mutableStateOf("ALL") } // "ALL", "HIGH", "MEDIUM", "LOW"
     
+    // 2b. Filter Area of Life Mode
+    var areaOfLifeFilter by remember { mutableStateOf("ALL") } // "ALL", "Health", "Career", "Personal Growth", "Leisure", "Finance", "General"
+    
     // 3. User Customizable Target Completion Rate Threshold
     var targetCompletionThreshold by remember { mutableStateOf(0.75f) } // default 75%
     
@@ -77,13 +80,16 @@ fun DashboardScreen(
         else -> Color(0xFF1D4ED8)
     }
 
-    // Filter items based on priority selection
-    val filteredItems = remember(allItems, priorityFilter) {
-        if (priorityFilter == "ALL") {
-            allItems
-        } else {
-            allItems.filter { it.priority.equals(priorityFilter, ignoreCase = true) }
+    // Filter items based on priority and area of life selection
+    val filteredItems = remember(allItems, priorityFilter, areaOfLifeFilter) {
+        var result = allItems
+        if (priorityFilter != "ALL") {
+            result = result.filter { it.priority.equals(priorityFilter, ignoreCase = true) }
         }
+        if (areaOfLifeFilter != "ALL") {
+            result = result.filter { it.lifeArea.equals(areaOfLifeFilter, ignoreCase = true) }
+        }
+        result
     }
 
     // Calculate rates for DAY, WEEK, MONTH
@@ -411,6 +417,50 @@ fun DashboardScreen(
                             ) {
                                 Text(
                                     text = level,
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = if (active) Color.White else MaterialTheme.colorScheme.onSurface
+                                    )
+                                )
+                            }
+                        }
+                    }
+                }
+
+                // 2b. Area of Life Filter Selection
+                Column {
+                    Text(
+                        text = "🌱 Filter Analytics by Area of Life:",
+                        style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Bold)
+                    )
+                    Spacer(modifier = Modifier.height(6.dp))
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .horizontalScroll(rememberScrollState()),
+                        horizontalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        listOf("ALL", "Health", "Career", "Personal Growth", "Leisure", "Finance", "General").forEach { area ->
+                            val active = areaOfLifeFilter == area
+                            val activeColor = when (area) {
+                                "Health" -> Color(0xFF10B981)
+                                "Career" -> Color(0xFF3B82F6)
+                                "Personal Growth" -> Color(0xFF8B5CF6)
+                                "Leisure" -> Color(0xFFF59E0B)
+                                "Finance" -> Color(0xFFEC4899)
+                                "ALL" -> primaryColor
+                                else -> Color(0xFF64748B)
+                            }
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(8.dp))
+                                    .background(if (active) activeColor else MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.5f))
+                                    .clickable { areaOfLifeFilter = area }
+                                    .padding(horizontal = 14.dp, vertical = 8.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = area,
                                     style = MaterialTheme.typography.labelSmall.copy(
                                         fontWeight = FontWeight.Bold,
                                         color = if (active) Color.White else MaterialTheme.colorScheme.onSurface
