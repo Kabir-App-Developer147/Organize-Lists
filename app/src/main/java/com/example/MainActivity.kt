@@ -38,6 +38,7 @@ import com.example.ui.FocusScreen
 import com.example.ui.MainViewModel
 import com.example.ui.OnboardingScreen
 import com.example.ui.AiCopilotTabContent
+import com.example.ui.DashboardScreen
 import com.example.ui.theme.MyApplicationTheme
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -112,7 +113,7 @@ fun MainTabsContainer(
     sortBy: String,
     viewModel: MainViewModel
 ) {
-    var activeTab by remember { mutableIntStateOf(0) } // 0: Home/Lists, 1: Paragraphs Planner, 2: AI Copilot, 3: Storage Vault, 4: My Profile
+    var activeTab by remember { mutableIntStateOf(0) } // 0: Home/Lists, 1: Paragraphs Planner, 2: Dashboard, 3: AI Copilot, 4: Storage Vault, 5: My Profile
 
     // Bottom sheets state for quick task creation
     var showAddTaskDialog by remember { mutableStateOf(false) }
@@ -141,7 +142,7 @@ fun MainTabsContainer(
                 },
                 actions = {
                     IconButton(
-                        onClick = { activeTab = 4 },
+                        onClick = { activeTab = 5 },
                         modifier = Modifier.testTag("avatar_button")
                     ) {
                         Box(
@@ -186,20 +187,27 @@ fun MainTabsContainer(
                 NavigationBarItem(
                     selected = activeTab == 2,
                     onClick = { activeTab = 2 },
+                    icon = { Icon(imageVector = Icons.Default.Assessment, contentDescription = "Dashboard View") },
+                    label = { Text("Dashboard", style = MaterialTheme.typography.labelMedium) },
+                    modifier = Modifier.testTag("nav_dashboard")
+                )
+                NavigationBarItem(
+                    selected = activeTab == 3,
+                    onClick = { activeTab = 3 },
                     icon = { Icon(imageVector = Icons.Default.AutoAwesome, contentDescription = "AI Copilot") },
                     label = { Text("AI Copilot", style = MaterialTheme.typography.labelMedium) },
                     modifier = Modifier.testTag("nav_ai")
                 )
                 NavigationBarItem(
-                    selected = activeTab == 3,
-                    onClick = { activeTab = 3 },
+                    selected = activeTab == 4,
+                    onClick = { activeTab = 4 },
                     icon = { Icon(imageVector = Icons.Default.Folder, contentDescription = "Storage Vault") },
                     label = { Text("Vault", style = MaterialTheme.typography.labelMedium) },
                     modifier = Modifier.testTag("nav_vault")
                 )
                 NavigationBarItem(
-                    selected = activeTab == 4,
-                    onClick = { activeTab = 4 },
+                    selected = activeTab == 5,
+                    onClick = { activeTab = 5 },
                     icon = { Icon(imageVector = Icons.Default.Settings, contentDescription = "Settings") },
                     label = { Text("Profile", style = MaterialTheme.typography.labelMedium) },
                     modifier = Modifier.testTag("nav_profile")
@@ -240,17 +248,25 @@ fun MainTabsContainer(
                     documents = documents,
                     viewModel = viewModel
                 )
-                2 -> AiCopilotTabContent(
+                2 -> {
+                    val allItemsState by viewModel.allItems.collectAsState()
+                    DashboardScreen(
+                        allItems = allItemsState,
+                        profile = profile,
+                        viewModel = viewModel
+                    )
+                }
+                3 -> AiCopilotTabContent(
                     documents = documents,
                     viewModel = viewModel
                 )
-                3 -> StorageVaultTabContent(
+                4 -> StorageVaultTabContent(
                     documents = documents,
                     categories = categories,
                     filteredItems = filteredItems,
                     viewModel = viewModel
                 )
-                4 -> ProfileTabContent(
+                5 -> ProfileTabContent(
                     profile = profile,
                     itemsCount = filteredItems.size,
                     docsCount = documents.size,
